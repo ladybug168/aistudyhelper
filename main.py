@@ -19,8 +19,8 @@ from prompts.solve_question_prompt import SOLVEQUESTION_PROMPTS
 from prompts.promptmode import PROMPT_MODES
 
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
+#client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 # main.py
 
 logger = logging.getLogger(__name__)
