@@ -1,3 +1,4 @@
+import streamlit as st
 import pdfplumber
 import numpy as np
 from openai import OpenAI
