@@ -1,6 +1,10 @@
 streamlit
 openai
-pdfplumber
+pdfminer.six
 pytesseract
 Pillow
-pymupdf
+newspaper3k
+lxml
+lxml_html_clean
+requests
+beautifulsoup4
