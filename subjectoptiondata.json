@@ -18,5 +18,25 @@
 	{
 		"name": "Medical",
 		"value": "medical"
+	},
+	{
+		"name": "IT",
+		"value": "it"
+	},
+	{
+		"name": "Legal",
+		"value": "legal"
+	},
+	{
+		"name": "Business",
+		"value": "business"
+	},
+	{
+		"name": "Education",
+		"value": "education"
+	},
+	{
+		"name": "Technical",
+		"value": "technical"
 	}
 ]

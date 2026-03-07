@@ -103,7 +103,7 @@ def get_dynamic_chunk_size(total_pages):
 #  PDF
 # ------------------------
 def process_pdf(pdf_path,subject):
-    logger.info(f"process pdf called with subject {subject}")
+    logger.info(f"process pdf called with subject {subject}, file path: {pdf_path}")
     
     pages = extract_pages(pdf_path)
     chunk_size = get_dynamic_chunk_size(len(pages))
@@ -170,14 +170,46 @@ Material:
 
     
 def final_summary(subject,combinedsummaries,mode):
+    summarykeys_list = list(SUMMARY_PROMPTS.keys())
 
-    prompt = build_prompt_mode(SUMMARY_PROMPTS[subject],combinedsummaries,mode)
-    print(prompt)
+    if subject in summarykeys_list:
+        prompt = build_prompt_mode(SUMMARY_PROMPTS[subject],combinedsummaries,mode)
+    else:
+        prompt = buildgenericsummary_prompt_mode(subject,combinedsummaries,mode)
+    
+    #print(prompt)
     response = callgpt4omini(prompt)
     logger.info(f"final_summary | tokens={response.usage.total_tokens}")
     return response.choices[0].message.content
     
+def buildgenericsummary_prompt_mode(subject,combinedsummaries,mode):
+    mode_instruction = PROMPT_MODES.get(mode, "").strip()
+    prompt = f"""
+    You are a {subject} tutor.
+    Summarize the text below into a concise, bulleted list of the key takeaways.
+    Additional instruction:
+    {mode_instruction}
 
+    Text:
+    {combinedsummaries[:8000]}
+    """
+    return prompt    
+
+def buildgenericssolve_prompt_mode(subject,combinedsummaries,mode,question):
+    mode_instruction = PROMPT_MODES.get(mode, "").strip()
+    prompt = f"""
+    You are a {subject} tutor. Answer the following question clearly and explain the reasoning using the context below.
+Question:
+{question}
+    
+    Additional instruction:
+    {mode_instruction}
+
+    Text:
+    {combinedsummaries[:8000]}
+    """
+    return prompt    
+    
 def final_summary_custom (subject,combinedsummaries,instruction):
 
     prompt = build_prompt_custom(instruction,combinedsummaries)
@@ -212,7 +244,7 @@ def chunk_pages(pages, chunk_size=5):
     
  
 
-def get_prompt(myprompt,subject, prompt_type, user_question=None, material_summary=None):
+def get_prompt(myprompt,subject, prompt_type, user_question=None):
     """
     subject: math, history, finance, art
     prompt_type: summary, quiz, solve
@@ -222,11 +254,11 @@ def get_prompt(myprompt,subject, prompt_type, user_question=None, material_summa
     base_prompt = myprompt[subject]
 
     if prompt_type == "solve":
-        if user_question is None or material_summary is None:
+        if user_question is None :
             raise ValueError("solve prompt requires user_question and material_summary")
         return base_prompt.format(
-            user_question = user_question,
-            material_summary_or_text = material_summary
+            user_question = user_question
+          
         )
     return base_prompt
 
@@ -261,9 +293,44 @@ Training content:
 
 # -------- QUIZ GENERATION --------
 
-def generate_quiz_json(subject,text):
-    prompt_template = get_prompt(QUIZ_PROMPTS,subject, prompt_type="quiz")
-    prompt = prompt_template.format(material=text)
+def generate_quiz_json(subject,text,number_of_question= 5, difficultylevel =0):
+    
+    if difficultylevel < 3:
+        difficulty = 'easy'
+        
+    elif difficultylevel < 6:
+        difficulty = 'medium'  
+    else:
+        difficulty = 'hard'    
+        
+    prompt = f"""
+You are an expert {subject} tutor.
+
+Generate {number_of_question} {difficulty} level multiple choice questions.
+
+Return the result ONLY in valid JSON format.
+
+Format:
+
+[
+  {{
+    "question": "question text",
+    "options": [
+      "A. option",
+      "B. option",
+      "C. option",
+      "D. option"
+    ],
+    "answer": "B",
+    "explanation": "short explanation"
+  }}
+]
+
+Material:
+{text[:8000]}
+"""
+    #prompt_template = get_prompt(QUIZ_PROMPTS,subject, prompt_type="quiz")
+    #prompt = prompt_template.format(material=text)
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -279,29 +346,50 @@ def generate_quiz_json(subject,text):
         quiz_data = json.loads(quiz_text)
     except json.JSONDecodeError:
         print("JSON parse error")
-        print(quiz_text)
+        logger.info(f"quiz data JSON parse error :{quiz_text}")
+        
         quiz_data = []
     return quiz_data
 
+def get_solveprompt(subject,text,question,mode_instruction):
+    
+    solvekeys_list = list(SOLVEQUESTION_PROMPTS.keys())
 
+    if subject in solvekeys_list:
+        solve_prompt = get_prompt(SOLVEQUESTION_PROMPTS,subject = subject, prompt_type = "solve",user_question = question)
+        addition_prompt = f"""
+{solve_prompt}
+
+Additional instruction:
+{mode_instruction}
+
+Context:
+{text}
+"""
+    else:
+        addition_prompt = buildgenericssolve_prompt_mode(subject,text,mode_instruction,question)
+        print(f" buildgenericssolve_prompt_mode :{addition_prompt}")
+   
+    return addition_prompt 
+
+def explain_question(subject,text,question,mode_instruction):
+
+    solve_prompt = get_solveprompt(subject,text,question,mode_instruction)
+    
+  
+    response = response = callgpt4omini(solve_prompt)
+
+    return response.choices[0].message.content
 
 
 # -------- QUIZ SOLVER --------
 
-def solve_question(subject,text,question):
+def solve_question(subject,text,question,mode_instruction):
 
-    solve_prompt = get_prompt(SOLVEQUESTION_PROMPTS,
-    subject = subject,
-    prompt_type = "solve",
-    user_question = question,
-    material_summary = text
-)
+    solve_prompt = get_solveprompt(subject,text,question,mode_instruction)
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role":"user","content":solve_prompt}]
-    )
-
+    response = callgpt4omini(solve_prompt)
+    
     return response.choices[0].message.content
 
 def extract_image_text(image_file):
@@ -339,7 +427,41 @@ Return clean structured text.
     )
     #logger.info(f"extract_image_text | tokens={response.usage.total_tokens}")
     return response.output_text
+
+def generate_flashcards(subject, text):
+
+    prompt = f"""
+You are an expert {subject} tutor.
+
+Create 10 study flashcards from the material.
+
+Return JSON format:
+
+[
+ {{"front":"question or concept","back":"short explanation"}},
+ {{"front":"question","back":"answer"}}
+]
+
+Material:
+{text[:8000]}
+"""
+
+    response = callgpt4omini(prompt)
+    flashcard_data = []
+    flashcard_text = response.choices[0].message.content
+    #print(f"flash cards:{flashcard_text}")
+    flashcard_text = flashcard_text.replace("```json", "").replace("```", "").strip()
+    try:
+        flashcard_data = json.loads(flashcard_text)
+
+    except json.JSONDecodeError:
+        print("JSON parse error")
+        logger.info(f"flashcard data JSON parse error :{flashcard_data}")
         
+        flashcard_data = []
+    return flashcard_data
+
+    
 # ------------------------
 # main
 # ------------------------
