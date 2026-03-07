@@ -8,3 +8,4 @@ lxml
 lxml_html_clean
 requests
 beautifulsoup4
+pdfplumber
