@@ -4,7 +4,7 @@ import logging
 import time
 
 from logging.handlers import RotatingFileHandler
-from main import process_pdf, final_summary,generate_quiz_json,solve_question,extract_image_text,final_summary_custom,extract_web_text,explain_question,generate_flashcards,generate_quiz_json_set
+from main import process_pdf, final_summary,generate_quiz_json,solve_question,extract_image_text,final_summary_custom,extract_web_text,explain_question,generate_flashcards
 
 # Custom CSS for Tabs
 custom_css = """
@@ -332,7 +332,10 @@ if  st.session_state.get('subject') and "process_pdf" in st.session_state and ((
         print(f"final_summary time take in {time.time()-start:.2f}s")
         st.session_state.final_summary = summary
         st.session_state.mode = mode
-        quiz_data = generate_quiz_json_set(st.session_state.subject,st.session_state.process_pdf)
+        start = time.time()
+        quiz_data = generate_quiz_json(st.session_state.subject,st.session_state.process_pdf,5)
+        logger.info(f"generate_quiz_json_set in {time.time()-start:.2f}s")
+        print(f"generate_quiz_json_set take in {time.time()-start:.2f}s")
         st.session_state.quiz_data = quiz_data
         flashcards = generate_flashcards(st.session_state.subject,st.session_state.process_pdf)
         st.session_state.flashcards = flashcards
@@ -399,12 +402,14 @@ with tab2:
         # difficult_column:   
         #    difficulty = st.selectbox("select quize difficulty level",["Easy","Medium","Hard"],label_visibility="hidden")
         if regbutton:
-            quiz_data = generate_quiz_json(st.session_state.subject,st.session_state.process_pdf,10, st.session_state.regenerate_counter)
+            start = time.time()
+            quiz_data = generate_quiz_json(st.session_state.subject,st.session_state.process_pdf,60)
             st.session_state.quiz_data = quiz_data
-            logger.debug(f"Regenerate quiz data: {quiz_data}")
-            st.session_state["expander_state"]= False
-            render_quiz(st.session_state.quiz_data)
-        elif st.session_state.get('quiz_data'):
+            print(f"generate_quiz_json_set take in {time.time()-start:.2f}s")
+            #logger.debug(f"Regenerate quiz data: {quiz_data}")
+            #st.session_state["expander_state"]= False
+            #render_quiz(st.session_state.quiz_data)
+        if st.session_state.get('quiz_data'):
             render_quiz(st.session_state.quiz_data) 
     progress.progress(90)     
               

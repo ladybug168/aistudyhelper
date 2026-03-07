@@ -295,9 +295,7 @@ Training content:
 """
 
     return prompt    
-
-def generate_quiz_json_set(subject,text,number_of_question= 60):
-    
+def get_quiz_prompt(subject,text,number_of_question):
     prompt = f"""
     
     You are a quiz generator for creating {number_of_question} questions on topic {subject}, the quiz question should cover all skill levels
@@ -323,6 +321,10 @@ Format:
 Material:
 {text[:8000]}
 """
+    return prompt
+def generate_quiz_json_set(subject,text,number_of_question= 60):
+    
+    prompt = get_quiz_prompt(subject,text,number_of_question)
     #prompt_template = get_prompt(QUIZ_PROMPTS,subject, prompt_type="quiz")
     #prompt = prompt_template.format(material=text)
 
@@ -339,26 +341,31 @@ Material:
     #print(f" generate_quiz_json: {quiz_text}") 
     try:
         quiz_data = json.loads(quiz_text)
-        num_elements = 5
-        st.session_state.quizset = quiz_data
+        #num_elements = 5
+        if number_of_question == 60:
+            st.session_state.quizset = quiz_data
         # Select 3 unique random elements
-        random_set = random.sample(quiz_data, num_elements)
+        #random_set = random.sample(quiz_data, num_elements)
     except json.JSONDecodeError:
         print("JSON parse error")
         logger.info(f"quiz data JSON parse error :{quiz_text}")
         
         quiz_data = []
-    return random_set
+    return quiz_data
 # -------- QUIZ GENERATION --------
 
-def generate_quiz_json(subject,text,number_of_question= 5, difficultylevel =0):
-    if st.session_state.get('quizset'):
-        num_elements = 10
-        recordset = st.session_state.quizset
-
-        random_set = random.sample(recordset, num_elements)
-        return random_set
-    return []
+def generate_quiz_json(subject,text,number_of_question= 5):
+    if number_of_question == 5: #first time quiz
+        return generate_quiz_json_set(subject,text,number_of_question)
+    elif number_of_question == 60: # click of regenerate
+        if st.session_state.get('quizset'):
+            quiz_data = st.session_state.quizset      
+        else:
+            quiz_data = generate_quiz_json_set(subject,text, 60)
+            
+    num_elements = 10
+    random_set = random.sample(quiz_data, num_elements)       
+    return random_set
     
 def get_solveprompt(subject,text,question,mode_instruction):
     
@@ -377,7 +384,7 @@ Context:
 """
     else:
         addition_prompt = buildgenericssolve_prompt_mode(subject,text,mode_instruction,question)
-        print(f" buildgenericssolve_prompt_mode :{addition_prompt}")
+        #print(f" buildgenericssolve_prompt_mode :{addition_prompt}")
    
     return addition_prompt 
 
