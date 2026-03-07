@@ -1,6 +1,8 @@
 import streamlit as st
+import random
 import pdfplumber
 import numpy as np
+import requests
 from openai import OpenAI
 import os
 import base64
@@ -20,12 +22,16 @@ from prompts.solve_question_prompt import SOLVEQUESTION_PROMPTS
 from prompts.promptmode import PROMPT_MODES
 
 
+# Create a Session object
+if "quizset" not in st.session_state:
+    st.session_state.quizset = []
+
 #client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 # main.py
 
 logger = logging.getLogger(__name__)
-
+quiz_session ='quiz_set'
 
 def extract_web_text(url):
     article = Article(url)
@@ -104,7 +110,7 @@ def get_dynamic_chunk_size(total_pages):
 # ------------------------
 def process_pdf(pdf_path,subject):
     logger.info(f"process pdf called with subject {subject}, file path: {pdf_path}")
-    
+    st.session_state.pop("quizset ", None)
     pages = extract_pages(pdf_path)
     chunk_size = get_dynamic_chunk_size(len(pages))
    
@@ -290,23 +296,11 @@ Training content:
 
     return prompt    
 
-
-# -------- QUIZ GENERATION --------
-
-def generate_quiz_json(subject,text,number_of_question= 5, difficultylevel =0):
+def generate_quiz_json_set(subject,text,number_of_question= 60):
     
-    if difficultylevel < 3:
-        difficulty = 'easy'
-        
-    elif difficultylevel < 6:
-        difficulty = 'medium'  
-    else:
-        difficulty = 'hard'    
-        
     prompt = f"""
-You are an expert {subject} tutor.
-
-Generate {number_of_question} {difficulty} level multiple choice questions.
+    
+    You are a quiz generator for creating {number_of_question} questions on topic {subject}, the quiz question should cover all skill levels
 
 Return the result ONLY in valid JSON format.
 
@@ -321,7 +315,7 @@ Format:
       "C. option",
       "D. option"
     ],
-    "answer": "B",
+    "answer": "X",
     "explanation": "short explanation"
   }}
 ]
@@ -339,18 +333,33 @@ Material:
         ],
         temperature=0.2
     )
-
+    #print(f" generate_quiz_prompt: {prompt}") 
     quiz_text = response.choices[0].message.content
     quiz_text = quiz_text.replace("```json", "").replace("```", "").strip()
+    #print(f" generate_quiz_json: {quiz_text}") 
     try:
         quiz_data = json.loads(quiz_text)
+        num_elements = 5
+        st.session_state.quizset = quiz_data
+        # Select 3 unique random elements
+        random_set = random.sample(quiz_data, num_elements)
     except json.JSONDecodeError:
         print("JSON parse error")
         logger.info(f"quiz data JSON parse error :{quiz_text}")
         
         quiz_data = []
-    return quiz_data
+    return random_set
+# -------- QUIZ GENERATION --------
 
+def generate_quiz_json(subject,text,number_of_question= 5, difficultylevel =0):
+    if st.session_state.get('quizset'):
+        num_elements = 10
+        recordset = st.session_state.quizset
+
+        random_set = random.sample(recordset, num_elements)
+        return random_set
+    return []
+    
 def get_solveprompt(subject,text,question,mode_instruction):
     
     solvekeys_list = list(SOLVEQUESTION_PROMPTS.keys())

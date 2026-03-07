@@ -4,7 +4,7 @@ import logging
 import time
 
 from logging.handlers import RotatingFileHandler
-from main import process_pdf, final_summary,generate_quiz_json,solve_question,extract_image_text,final_summary_custom,extract_web_text,explain_question,generate_flashcards
+from main import process_pdf, final_summary,generate_quiz_json,solve_question,extract_image_text,final_summary_custom,extract_web_text,explain_question,generate_flashcards,generate_quiz_json_set
 
 # Custom CSS for Tabs
 custom_css = """
@@ -96,6 +96,7 @@ def reset_session():
     web_url =''
     st.session_state.text_area_content = ""
     st.session_state.regenerate_counter = 0
+    st.session_state["expander_state"] = False
     for key in keys_to_reset:
         if key in st.session_state:
             del st.session_state[key]
@@ -142,9 +143,11 @@ if "uploader_key" not in st.session_state:
 if "flashcards" not in st.session_state:
     st.session_state.flashcards = []
 
-if 'regenerate_counter' not in st.session_state:
-    st.session_state.regenerate_counter = 0
-  
+
+# 1. Initialize session state
+if "expander_state" not in st.session_state:
+    st.session_state["expander_state"] = False  # Starts Close
+    
 with open('subjectoptiondata.json', 'r') as file:
     subject_data_list = json.load(file)
 
@@ -260,10 +263,11 @@ except ValueError:
 
 progress = st.progress(0)
  
-# Function to increment the counter
-def increment_counter():
-    st.session_state.regenerate_counter += 1
- 
+
+# 2. Define the callback function
+def close_expander():
+    st.session_state["expander_state"] = False
+    
 logger.debug(f"st.session_state.subject  :{st.session_state.subject}")
 signature = get_input_signature(uploaded_files, st.session_state.subject,web_url)
 logger.debug(f"call to get_input_signature  :{signature}")
@@ -328,7 +332,7 @@ if  st.session_state.get('subject') and "process_pdf" in st.session_state and ((
         print(f"final_summary time take in {time.time()-start:.2f}s")
         st.session_state.final_summary = summary
         st.session_state.mode = mode
-        quiz_data = generate_quiz_json(st.session_state.subject,st.session_state.process_pdf)
+        quiz_data = generate_quiz_json_set(st.session_state.subject,st.session_state.process_pdf)
         st.session_state.quiz_data = quiz_data
         flashcards = generate_flashcards(st.session_state.subject,st.session_state.process_pdf)
         st.session_state.flashcards = flashcards
@@ -339,7 +343,7 @@ if  st.session_state.get('subject') and "process_pdf" in st.session_state and ((
 
  
 def render_quiz(quiz_data):
-
+    print (f"render_quiz expanded:  {st.session_state["expander_state"]}")
     for i, q in enumerate(quiz_data):
 
         st.write(f"### Question {i+1}")
@@ -347,7 +351,7 @@ def render_quiz(quiz_data):
         for opt in q["options"]:
             st.write(opt)
 
-        with st.expander("👁 Reveal Answer"):
+        with st.expander("👁 Reveal Answer",expanded=st.session_state["expander_state"]):
             st.write(f"Correct Answer: {q['answer']}")
             st.write(q["explanation"])
         st.divider()
@@ -391,13 +395,14 @@ with tab2:
         st.subheader("Generated Quiz") 
         #button_column,difficult_column,dummy_column = st.columns([2, 1,7], vertical_alignment="bottom") 
         #with button_column:      
-        regbutton = st.button("Regenerate Quiz", on_click=increment_counter)
+        regbutton = st.button("Regenerate Quiz", on_click=close_expander)
         # difficult_column:   
         #    difficulty = st.selectbox("select quize difficulty level",["Easy","Medium","Hard"],label_visibility="hidden")
         if regbutton:
             quiz_data = generate_quiz_json(st.session_state.subject,st.session_state.process_pdf,10, st.session_state.regenerate_counter)
             st.session_state.quiz_data = quiz_data
             logger.debug(f"Regenerate quiz data: {quiz_data}")
+            st.session_state["expander_state"]= False
             render_quiz(st.session_state.quiz_data)
         elif st.session_state.get('quiz_data'):
             render_quiz(st.session_state.quiz_data) 
