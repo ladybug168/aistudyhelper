@@ -6,6 +6,24 @@ import time
 from logging.handlers import RotatingFileHandler
 from main import process_pdf, final_summary,generate_quiz_json,solve_question,extract_image_text,final_summary_custom,extract_web_text,explain_question,generate_flashcards
 
+st.markdown(
+    """
+        <style>
+                .stAppHeader {
+                    background-color: rgba(255, 255, 255, 0.0);  /* Transparent background */
+                    visibility: visible;  /* Ensure the header is visible */
+                }
+
+               .block-container {
+                    padding-top: 1rem;
+                    padding-bottom: 0rem;
+                    padding-left: 5rem;
+                    padding-right: 5rem;
+                }
+        </style>
+        """,
+    unsafe_allow_html=True,
+)
 # Custom CSS for Tabs
 custom_css = """
 <style>
@@ -19,18 +37,28 @@ custom_css = """
         background-color: #f0f2f6;
         border-radius: 4px 4px 0px 0px;
         padding: 10px 20px;
+        color: #1c83e1; 
     }
 
     /* Style the active tab */
     .stTabs [aria-selected="true"] {
-        background-color: #ffffff;
-        color: #ff4b4b; /* Streamlit red */
+        background-color: #ffffff; 
+        color: #ff4b4b; /* Streamlit red */ 
         font-weight: bold;
     }
        
 </style>
 """
-
+st.markdown("""
+<style>
+.big-font {
+    font-size: 20px;
+    font-weight: bold;
+    color: #1c83e1; 
+    font-family: serif, sans-serif;
+}
+</style>
+""", unsafe_allow_html=True)
 
 row_column1,row_column2 = st.columns([0.4, 0.6],vertical_alignment="center")
 st.set_page_config(
@@ -40,11 +68,13 @@ st.set_page_config(
 )
 with row_column1:
     st.title("📚 AI StudySense")
-    #st.caption("Your AI-powered learning assistant, turn your study materials into **summaries, quizzes, and AI tutoring**.")
-    st.markdown("""Turn your learning materials into:
+
+    st.markdown('<span class="big-font">Turn your learning materials into:</span>', unsafe_allow_html=True)
+   
+    st.markdown("""  
     
 • 📄 Smart summaries  &nbsp;• 🧠 Interactive quizzes  
-• 🤖 &nbsp; &nbsp; AI tutoring  &nbsp; &nbsp;  &nbsp;&nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp;   • 📖  Flashcards  
+•&nbsp; 🤖  &nbsp; AI tutoring  &nbsp; &nbsp;  &nbsp;&nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp;   • 📖  Flashcards  
 """)   
      
 
@@ -52,9 +82,9 @@ st.markdown(custom_css, unsafe_allow_html=True)
 with row_column2:
     st.markdown("""
 1️⃣ Select your subject  
-2️⃣ Upload a PDF or images  
+2️⃣ Upload a PDF file or images  
 3️⃣ Choose learning mode  
-4️⃣ Study using summaries, quizzes, or ask questions
+4️⃣ Study using summaries, quizzes, ask questions or flashcards
 """)
 logger = logging.getLogger()
 
@@ -96,7 +126,6 @@ def reset_session():
     web_url =''
     st.session_state.text_area_content = ""
     st.session_state.regenerate_counter = 0
-    st.session_state["expander_state"] = False
     for key in keys_to_reset:
         if key in st.session_state:
             del st.session_state[key]
@@ -113,9 +142,7 @@ def get_input_signature(files, subject, url):
     
 
 def radio_change_callback():
-    #st.session_state.radio_value_changed = True
-    #st.write(f"Callback triggered. New value: {st.session_state.my_radio}")
-    #logger.info("call radio_change_callback!!!")
+
     reset_session()
     
 # Initialize session state variables if they don't exist
@@ -143,10 +170,6 @@ if "uploader_key" not in st.session_state:
 if "flashcards" not in st.session_state:
     st.session_state.flashcards = []
 
-
-# 1. Initialize session state
-if "expander_state" not in st.session_state:
-    st.session_state["expander_state"] = False  # Starts Close
     
 with open('subjectoptiondata.json', 'r') as file:
     subject_data_list = json.load(file)
@@ -165,8 +188,7 @@ web_url=''
 
 with st.sidebar:
 
-    st.header("Study Setup")
-
+    st.markdown('<span class="big-font">Study Setup:</span>', unsafe_allow_html=True)
     selected_subjectoption = st.selectbox(
         "Subject",
         options_list,
@@ -346,7 +368,7 @@ if  st.session_state.get('subject') and "process_pdf" in st.session_state and ((
 
  
 def render_quiz(quiz_data):
-    print (f"render_quiz expanded:  {st.session_state["expander_state"]}")
+    
     for i, q in enumerate(quiz_data):
 
         st.write(f"### Question {i+1}")
@@ -354,7 +376,7 @@ def render_quiz(quiz_data):
         for opt in q["options"]:
             st.write(opt)
 
-        with st.expander("👁 Reveal Answer",expanded=st.session_state["expander_state"]):
+        with st.expander("👁 Reveal Answer"):
             st.write(f"Correct Answer: {q['answer']}")
             st.write(q["explanation"])
         st.divider()
