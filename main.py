@@ -218,19 +218,19 @@ Question:
     
 def final_summary_custom (subject,combinedsummaries,instruction):
 
-    prompt = build_prompt_custom(instruction,combinedsummaries)
+    prompt = build_prompt_custom(subject,instruction,combinedsummaries)
     print(f"build_prompt_custom:{prompt}")
     response = callgpt4omini(prompt)
     logger.info(f"final_summary_custom | tokens={response.usage.total_tokens}")
     return response.choices[0].message.content
 
-def callgpt4omini(prompt):
+def callgpt4omini(prompt,temperature =0.2):
     return client.chat.completions.create(
 
         model="gpt-4o-mini",
 
-        messages=[{"role":"user","content":prompt}]
-
+        messages=[{"role":"user","content":prompt}],
+        temperature=temperature  ## higher temperature will Increase creativity
     )
     
 
@@ -283,18 +283,19 @@ Training content:
     return prompt
     
     
-def build_prompt_custom(personalprompt,text):
-
+def build_prompt_custom(mode_instruction,personalprompt,text):
 
     prompt = f"""
 {personalprompt}
 
-
+Additional instruction:
+{mode_instruction}
 Training content:
 {text}
 """
 
-    return prompt    
+    return prompt
+    
 def get_quiz_prompt(subject,text,number_of_question):
     prompt = f"""
     
@@ -355,17 +356,48 @@ def generate_quiz_json_set(subject,text,number_of_question= 60):
 # -------- QUIZ GENERATION --------
 
 def generate_quiz_json(subject,text,number_of_question= 5):
-    if number_of_question == 5: #first time quiz
-        return generate_quiz_json_set(subject,text,number_of_question)
-    elif number_of_question == 60: # click of regenerate
-        if st.session_state.get('quizset'):
-            quiz_data = st.session_state.quizset      
-        else:
-            quiz_data = generate_quiz_json_set(subject,text, 60)
-            
-    num_elements = 10
-    random_set = random.sample(quiz_data, num_elements)       
-    return random_set
+    seed = random.randint(1,100000)
+
+    prompt = f"""
+    Seed:{seed}
+    You are an expert {subject} tutor.
+    Generate {number_of_question} different multiple choice questions.
+    Focus on concepts not previously asked.
+    Return the result ONLY in valid JSON format.
+Format:
+[
+  {{
+    "question": "question text",
+    "options": [
+      "A. option",
+      "B. option",
+      "C. option",
+      "D. option"
+    ],
+    "answer": "X",
+    "explanation": "short explanation"
+  }}
+]
+    Material:
+    {text[:8000]}
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"user","content":prompt}],
+        temperature=0.7
+    )         
+    quiz_text = response.choices[0].message.content
+    quiz_text = quiz_text.replace("```json", "").replace("```", "").strip()
+
+    try:
+        quiz_data = json.loads(quiz_text)
+       
+    except json.JSONDecodeError:
+        print("JSON parse error")
+        logger.info(f"quiz data JSON parse error :{quiz_text}")    
+        quiz_data = []
+    return quiz_data
     
 def get_solveprompt(subject,text,question,mode_instruction):
     
@@ -393,7 +425,7 @@ def explain_question(subject,text,question,mode_instruction):
     solve_prompt = get_solveprompt(subject,text,question,mode_instruction)
     
   
-    response = response = callgpt4omini(solve_prompt)
+    response = response = callgpt4omini(solve_prompt,0.3)
 
     return response.choices[0].message.content
 
@@ -404,7 +436,7 @@ def solve_question(subject,text,question,mode_instruction):
 
     solve_prompt = get_solveprompt(subject,text,question,mode_instruction)
 
-    response = callgpt4omini(solve_prompt)
+    response = callgpt4omini(solve_prompt,0.3)
     
     return response.choices[0].message.content
 
@@ -462,7 +494,7 @@ Material:
 {text[:8000]}
 """
 
-    response = callgpt4omini(prompt)
+    response = callgpt4omini(prompt,0.6)
     flashcard_data = []
     flashcard_text = response.choices[0].message.content
     #print(f"flash cards:{flashcard_text}")

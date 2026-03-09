@@ -114,6 +114,9 @@ if not logger.handlers:
 logging.getLogger("pdfminer").setLevel(logging.WARNING)
 logging.getLogger("pdfminer.psparser").setLevel(logging.WARNING)
 
+def update_key():
+    st.session_state.uploader_key += 1
+    
 def reset_session():
     keys_to_reset = [
         "process_pdf",
@@ -124,6 +127,7 @@ def reset_session():
         "flashcards"
     ]
     web_url =''
+
     st.session_state.text_area_content = ""
     st.session_state.regenerate_counter = 0
     for key in keys_to_reset:
@@ -140,10 +144,10 @@ def get_input_signature(files, subject, url):
         "url": url
     })
     
-
 def radio_change_callback():
-
     reset_session()
+    update_key()
+
     
 # Initialize session state variables if they don't exist
 if "process_pdf" not in st.session_state:
@@ -195,33 +199,36 @@ with st.sidebar:
         index=None,
         placeholder=default_sel,
         key="subject_select",
-        on_change=reset_session
+        on_change=radio_change_callback
     )
-    mode = st.radio(
+    # A dictionary where keys are display labels and values are internal IDs
+    mode_data = {
+        "📘 Standard Study": "Standard Study",
+        "🎯 Exam Preparation": "Exam Preparation",
+        "⚡ Quick Summary": "Quick Summary",
+        "🧠 Deep Understanding": "Deep Understanding",
+        "✏️ Custom": "Custom",
+    }
+    selected_key = st.radio(
     "Choose Learning Mode",
-    [
-        "📘 Standard Study",
-        "🎯 Exam Preparation",
-        "⚡ Quick Summary",
-        "🧠 Deep Understanding",
-        "✏️ Custom"
-    ]
-)
+    options=list(mode_data.keys())
+    )
 
-
+    mode = mode_data[selected_key]
     if mode == "Custom":
         user_prompt = st.text_area(
             "Custom Instruction",
-            placeholder="Example: Focus on key definitions and generate exam-style questions"
+            placeholder="Example: Summarize the provided text into a structured report with an Executive Summary, 5-7 key bulleted takeaways, and a section for actionable insights, maintaining a professional and objective tone."
         )
 
 
-
+    st.divider()
     input_type = st.radio(
         "Choose input source",
         ["Upload Files", "Web URL"],
         on_change=radio_change_callback # Specify the callback function
     )
+
     print(f"mode used: {mode} ") 
     if input_type == "Upload Files":
         web_url=''
@@ -229,7 +236,7 @@ with st.sidebar:
             "Upload learning material (1 PDF file or miltiple image files)",
             type=["pdf", "png", "jpg", "jpeg"],
             accept_multiple_files=True,
-            #key=f"uploader_{st.session_state.uploader_key}"
+            key=f"uploader_{st.session_state.uploader_key}"
         )
         if uploaded_files:
             #print(f"uploaded_files called ")
@@ -254,9 +261,10 @@ with st.sidebar:
                     filetype = "image"
                     textimg = extract_image_text(file)
                     all_pages_img.append(textimg)
-                    
+
+        st.sidebar.success(f"{len(uploaded_files)} file(s) uploaded")        
     elif input_type == "Web URL":
-        web_url = st.text_input("Enter webpage URL")
+        web_url = st.text_input("Enter web URL,then press enter")
         uploaded_files =[]
 
 
@@ -346,7 +354,7 @@ if  st.session_state.get('subject') and "process_pdf" in st.session_state and ((
         if mode == 'Custom':
             #print (f"Custom :{mode} with user prompt :{user_prompt}")
             user_prompt = user_prompt if mode == "Custom" else ""
-            summary = final_summary_custom(user_prompt,st.session_state.process_pdf)
+            summary = final_summary_custom(st.session_state.subject,st.session_state.process_pdf,user_prompt)
         else:
             logger.debug(f"template {mode}")
             summary = final_summary(st.session_state.subject,st.session_state.process_pdf,mode) 
@@ -425,7 +433,7 @@ with tab2:
         #    difficulty = st.selectbox("select quize difficulty level",["Easy","Medium","Hard"],label_visibility="hidden")
         if regbutton:
             start = time.time()
-            quiz_data = generate_quiz_json(st.session_state.subject,st.session_state.process_pdf,60)
+            quiz_data = generate_quiz_json(st.session_state.subject,st.session_state.process_pdf,10)
             st.session_state.quiz_data = quiz_data
             print(f"generate_quiz_json_set take in {time.time()-start:.2f}s")
             #logger.debug(f"Regenerate quiz data: {quiz_data}")
